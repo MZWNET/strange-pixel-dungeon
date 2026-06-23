@@ -36,6 +36,7 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSpriteSheet;
+import com.shatteredpixel.shatteredpixeldungeon.ui.EquipmentStrip;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Icons;
 import com.shatteredpixel.shatteredpixeldungeon.ui.InventorySlot;
 import com.shatteredpixel.shatteredpixeldungeon.ui.QuickSlotButton;
@@ -244,22 +245,28 @@ public class WndBag extends WndTabbed {
 		
 		// Equipped items
 		Belongings stuff = Dungeon.hero.belongings;
-		placeItem( stuff.weapon != null ? stuff.weapon : new Placeholder( ItemSpriteSheet.WEAPON_HOLDER ) );
-		placeItem( stuff.armor != null ? stuff.armor : new Placeholder( ItemSpriteSheet.ARMOR_HOLDER ) );
-		placeItem( stuff.artifact != null ? stuff.artifact : new Placeholder( ItemSpriteSheet.ARTIFACT_HOLDER ) );
-		placeItem( stuff.misc != null ? stuff.misc : new Placeholder( ItemSpriteSheet.SOMETHING ) );
-		placeItem( stuff.ring != null ? stuff.ring : new Placeholder( ItemSpriteSheet.RING_HOLDER ) );
+		EquipmentStrip equipmentStrip = new EquipmentStrip(stuff, true, new EquipmentStrip.SlotFactory() {
+			@Override
+			public InventorySlot create(Item item) {
+				InventorySlot slot = createItemSlot(item);
+				if (item instanceof Placeholder || (selector != null && !selector.itemSelectable(item))){
+					slot.enable(false);
+				}
+				return slot;
+			}
+		}, slotWidth, slotHeight, SLOT_MARGIN);
+		add(equipmentStrip);
+		equipmentStrip.setRect(0, TITLE_HEIGHT, slotWidth * nCols + SLOT_MARGIN * (nCols - 1), slotHeight);
 
-		int equipped = 5;
+		count += nCols;
+		row = 1;
+		col = 0;
+		int equipped = nCols;
 
 		//the container itself if it's not the root backpack
 		if (container != Dungeon.hero.belongings.backpack){
 			placeItem(container);
 			count--; //don't count this one, as it's not actually inside of itself
-		} else if (stuff.secondWep != null) {
-			//second weapon always goes to the front of view on main bag
-			placeItem(stuff.secondWep);
-			equipped++;
 		}
 
 		// Items in the bag, except other containers (they have tags at the bottom)
@@ -284,7 +291,23 @@ public class WndBag extends WndTabbed {
 		int x = col * (slotWidth + SLOT_MARGIN);
 		int y = TITLE_HEIGHT + row * (slotHeight + SLOT_MARGIN);
 
-		InventorySlot slot = new InventorySlot( item ){
+		InventorySlot slot = createItemSlot(item);
+		slot.setRect( x, y, slotWidth, slotHeight );
+		add(slot);
+
+		if (item == null || (selector != null && !selector.itemSelectable(item))){
+			slot.enable(false);
+		}
+
+		if (++col >= nCols) {
+			col = 0;
+			row++;
+		}
+
+	}
+
+	protected InventorySlot createItemSlot( final Item item ) {
+		return new InventorySlot( item ){
 			@Override
 			protected void onClick() {
 				if (lastBag != item && !lastBag.contains(item) && !item.isEquipped(Dungeon.hero)){
@@ -349,18 +372,6 @@ public class WndBag extends WndTabbed {
 				}
 			}
 		};
-		slot.setRect( x, y, slotWidth, slotHeight );
-		add(slot);
-
-		if (item == null || (selector != null && !selector.itemSelectable(item))){
-			slot.enable(false);
-		}
-		
-		if (++col >= nCols) {
-			col = 0;
-			row++;
-		}
-
 	}
 
 	@Override

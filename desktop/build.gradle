@@ -48,6 +48,46 @@ installDist.dependsOn release
 startScripts.dependsOn release
 jpackageImage.dependsOn release
 
+tasks.register('cleanArm64DesktopApp', Delete) {
+    delete layout.buildDirectory.dir('jpackage-arm64')
+}
+
+tasks.register('assembleArm64Desktop', Exec) {
+    group = 'distribution'
+    description = 'Assembles a macOS arm64 desktop app image using the current JDK jpackage.'
+
+    dependsOn installDist
+    dependsOn cleanArm64DesktopApp
+
+    def outputDir = layout.buildDirectory.dir('jpackage-arm64')
+    def inputDir = layout.buildDirectory.dir('install/desktop/lib')
+    def packageVersion = (appVersionName =~ /\d+\.\d+\.\d+/)[0]
+
+    doFirst {
+        if (!osName.contains('mac')) {
+            throw new GradleException('assembleArm64Desktop can only run on macOS.')
+        }
+
+        def arch = System.getProperty('os.arch').toLowerCase(Locale.ROOT)
+        if (!(arch.contains('aarch64') || arch.contains('arm64'))) {
+            throw new GradleException("assembleArm64Desktop requires an arm64 JDK, current os.arch is ${System.getProperty('os.arch')}.")
+        }
+    }
+
+    executable = 'jpackage'
+    args '--type', 'app-image',
+            '--dest', outputDir.get().asFile.absolutePath,
+            '--name', appName,
+            '--input', inputDir.get().asFile.absolutePath,
+            '--main-jar', "desktop-${appVersionName}.jar",
+            '--main-class', appMainClass,
+            '--app-version', packageVersion,
+            '--icon', file('src/main/assets/icons/mac.icns').absolutePath,
+            '--java-options', '-XstartOnFirstThread',
+            '--java-options', '-XX:+IgnoreUnrecognizedVMOptions',
+            '--mac-package-identifier', appPackageName + '.apple'
+}
+
 runtime {
     modules = ['java.base',
                'java.desktop',

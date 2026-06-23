@@ -69,7 +69,7 @@ public class InventoryPane extends Component {
 
 	private static InventoryPane instance;
 
-	private ArrayList<InventorySlot> equipped;
+	private EquipmentStrip equipmentStrip;
 	private ArrayList<InventorySlot> bagItems;
 
 	private Image gold;
@@ -152,12 +152,13 @@ public class InventoryPane extends Component {
 			}
 		};
 
-		equipped = new ArrayList<>();
-		for (int i = 0; i < 5; i++){
-			InventorySlot btn = new InventoryPaneSlot(null);
-			equipped.add(btn);
-			add(btn);
-		}
+		equipmentStrip = new EquipmentStrip(Dungeon.hero.belongings, true, new EquipmentStrip.SlotFactory() {
+			@Override
+			public InventorySlot create(Item item) {
+				return new InventoryPaneSlot(item);
+			}
+		}, SLOT_WIDTH, SLOT_HEIGHT, 1);
+		add(equipmentStrip);
 
 		gold = Icons.get(Icons.COIN_SML);
 		add(gold);
@@ -213,10 +214,8 @@ public class InventoryPane extends Component {
 		bg.size(width, height);
 
 		float left = x+4;
-		for (InventorySlot i : equipped){
-			i.setRect(left, y+4, SLOT_WIDTH, SLOT_HEIGHT);
-			left = i.right()+1;
-		}
+		equipmentStrip.setRect(left, y+4, SLOT_WIDTH*5 + 4, SLOT_HEIGHT);
+		left = equipmentStrip.right()+1;
 
 		promptTxt.maxWidth((int) (width - (left - x) - bg.marginRight()));
 		if (promptTxt.height() > 10){
@@ -261,9 +260,7 @@ public class InventoryPane extends Component {
 	public void alpha( float value ){
 		bg.alpha( value );
 		
-		for (InventorySlot slot : equipped){
-			slot.alpha( value );
-		}
+		equipmentStrip.alpha(value);
 		for (InventorySlot slot : bagItems){
 			slot.alpha( value );
 		}
@@ -297,17 +294,10 @@ public class InventoryPane extends Component {
 			lastBag = stuff.backpack;
 		}
 
-		equipped.get(0).item(stuff.weapon == null ? new WndBag.Placeholder( ItemSpriteSheet.WEAPON_HOLDER ) : stuff.weapon);
-		equipped.get(1).item(stuff.armor == null ? new WndBag.Placeholder( ItemSpriteSheet.ARMOR_HOLDER ) : stuff.armor);
-		equipped.get(2).item(stuff.artifact == null ? new WndBag.Placeholder( ItemSpriteSheet.ARTIFACT_HOLDER ) : stuff.artifact);
-		equipped.get(3).item(stuff.misc == null ? new WndBag.Placeholder( ItemSpriteSheet.SOMETHING ) : stuff.misc);
-		equipped.get(4).item(stuff.ring == null ? new WndBag.Placeholder( ItemSpriteSheet.RING_HOLDER ) : stuff.ring);
+		equipmentStrip.belongings(stuff);
+		equipmentStrip.refresh();
 
 		ArrayList<Item> items = (ArrayList<Item>) lastBag.items.clone();
-
-		if (lastBag == stuff.backpack && stuff.secondWep != null){
-			items.add(0, stuff.secondWep);
-		}
 
 		int j = 0;
 		for (int i = 0; i < 20; i++){
@@ -356,7 +346,7 @@ public class InventoryPane extends Component {
 		}
 
 		boolean lostInvent = Dungeon.hero.belongings.lostInventory();
-		for (InventorySlot b : equipped){
+		for (InventorySlot b : equipmentStrip.slots()){
 			b.enable(lastEnabled
 					&& !(b.item() instanceof WndBag.Placeholder)
 					&& (selector == null || selector.itemSelectable(b.item()))
@@ -450,7 +440,7 @@ public class InventoryPane extends Component {
 			lastEnabled = (Dungeon.hero.ready || !Dungeon.hero.isAlive());
 
 			boolean lostInvent = Dungeon.hero.belongings.lostInventory();
-			for (InventorySlot b : equipped){
+			for (InventorySlot b : equipmentStrip.slots()){
 				b.enable(lastEnabled
 						&& !(b.item() instanceof WndBag.Placeholder)
 						&& (selector == null || selector.itemSelectable(b.item()))

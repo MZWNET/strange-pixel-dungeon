@@ -30,9 +30,17 @@ public class ScrollEvent {
 	
 	public PointF pos;
 	public float amount;
+	public float amountX;
+	public float amountY;
 	
 	public ScrollEvent(PointF mousePos, float amount){
-		this.amount = amount;
+		this(mousePos, 0, amount);
+	}
+
+	public ScrollEvent(PointF mousePos, float amountX, float amountY){
+		this.amount = amountY;
+		this.amountX = amountX;
+		this.amountY = amountY;
 		this.pos = mousePos;
 	}
 	

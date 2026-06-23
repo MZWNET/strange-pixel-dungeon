@@ -41,10 +41,12 @@ import com.shatteredpixel.shatteredpixeldungeon.items.weapon.Weapon;
 import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSpriteSheet;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
+import com.watabou.utils.Bundlable;
 import com.watabou.utils.Bundle;
 import com.watabou.utils.Random;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Iterator;
 
 public class Belongings implements Iterable<Item> {
@@ -81,6 +83,9 @@ public class Belongings implements Iterable<Item> {
 
 	public KindOfWeapon weapon = null;
 	public Armor armor = null;
+	public ArrayList<KindofMisc> miscItems = new ArrayList<>();
+
+	//legacy mirrors for old fixed-slot code and save migration; miscItems is the source of truth
 	public Artifact artifact = null;
 	public KindofMisc misc = null;
 	public Ring ring = null;
@@ -155,6 +160,117 @@ public class Belongings implements Iterable<Item> {
 		}
 	}
 
+	public ArrayList<KindofMisc> rawEquippedMiscs(){
+		return miscItems;
+	}
+
+	public ArrayList<KindofMisc> equippedMiscs(){
+		ArrayList<KindofMisc> result = new ArrayList<>();
+		boolean lostInvent = lostInventory();
+		for (KindofMisc item : miscItems){
+			if (!lostInvent || item.keptThroughLostInventory()){
+				result.add(item);
+			}
+		}
+		return result;
+	}
+
+	public KindofMisc miscSlot(int index){
+		ArrayList<KindofMisc> items = equippedMiscs();
+		return index >= 0 && index < items.size() ? items.get(index) : null;
+	}
+
+	public ArrayList<Ring> rings(){
+		ArrayList<Ring> result = new ArrayList<>();
+		for (KindofMisc item : equippedMiscs()){
+			if (item instanceof Ring){
+				result.add((Ring)item);
+			}
+		}
+		return result;
+	}
+
+	public ArrayList<Artifact> artifacts(){
+		ArrayList<Artifact> result = new ArrayList<>();
+		for (KindofMisc item : equippedMiscs()){
+			if (item instanceof Artifact){
+				result.add((Artifact)item);
+			}
+		}
+		return result;
+	}
+
+	public boolean hasEquippedArtifact(Class<?> artifactClass){
+		for (KindofMisc item : rawEquippedMiscs()){
+			if (item instanceof Artifact && item.getClass().equals(artifactClass)){
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public boolean hasEquippedMiscClass(Class<?> itemClass){
+		for (KindofMisc item : rawEquippedMiscs()){
+			if (item.getClass().equals(itemClass)){
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public void equipMisc(KindofMisc item){
+		if (!miscItems.contains(item)){
+			miscItems.add(item);
+			syncLegacyMiscSlots();
+		}
+	}
+
+	public void unequipMisc(KindofMisc item){
+		if (miscItems.remove(item)){
+			syncLegacyMiscSlots();
+		}
+	}
+
+	public ArrayList<Item> equippedItems(){
+		ArrayList<Item> result = new ArrayList<>();
+		if (weapon() != null)    result.add(weapon());
+		if (armor() != null)     result.add(armor());
+		result.addAll(equippedMiscs());
+		if (secondWep() != null) result.add(secondWep());
+		return result;
+	}
+
+	private ArrayList<Item> rawEquippedItems(){
+		ArrayList<Item> result = new ArrayList<>();
+		if (weapon != null)      result.add(weapon);
+		if (armor != null)       result.add(armor);
+		result.addAll(miscItems);
+		if (secondWep != null)   result.add(secondWep);
+		return result;
+	}
+
+	public void syncLegacyMiscSlots(){
+		artifact = null;
+		misc = null;
+		ring = null;
+
+		for (KindofMisc item : miscItems){
+			if (artifact == null && item instanceof Artifact){
+				artifact = (Artifact)item;
+			}
+			if (ring == null && item instanceof Ring){
+				ring = (Ring)item;
+			}
+		}
+
+		for (KindofMisc item : miscItems){
+			if (item != artifact && item != ring){
+				misc = item;
+				break;
+			}
+		}
+	}
+
 	public KindOfWeapon secondWep(){
 		if (!lostInventory() || (secondWep != null && secondWep.keptThroughLostInventory())){
 			return secondWep;
@@ -170,6 +286,7 @@ public class Belongings implements Iterable<Item> {
 	private static final String ARTIFACT   = "artifact";
 	private static final String MISC       = "misc";
 	private static final String RING       = "ring";
+	private static final String MISC_ITEMS = "miscs";
 
 	private static final String SECOND_WEP = "second_wep";
 
@@ -179,9 +296,7 @@ public class Belongings implements Iterable<Item> {
 		
 		bundle.put( WEAPON, weapon );
 		bundle.put( ARMOR, armor );
-		bundle.put( ARTIFACT, artifact );
-		bundle.put( MISC, misc );
-		bundle.put( RING, ring );
+		bundle.put( MISC_ITEMS, miscItems );
 		bundle.put( SECOND_WEP, secondWep );
 	}
 
@@ -198,14 +313,26 @@ public class Belongings implements Iterable<Item> {
 		armor = (Armor)bundle.get( ARMOR );
 		if (armor() != null)        armor().activate( owner );
 
-		artifact = (Artifact) bundle.get(ARTIFACT);
-		if (artifact() != null)     artifact().activate(owner);
-
-		misc = (KindofMisc) bundle.get(MISC);
-		if (misc() != null)         misc().activate( owner );
-
-		ring = (Ring) bundle.get(RING);
-		if (ring() != null)         ring().activate( owner );
+		miscItems.clear();
+		if (bundle.contains(MISC_ITEMS)){
+			Collection<Bundlable> restoredMiscs = bundle.getCollection(MISC_ITEMS);
+			for (Bundlable item : restoredMiscs){
+				if (item instanceof KindofMisc){
+					miscItems.add((KindofMisc)item);
+				}
+			}
+		} else {
+			Artifact legacyArtifact = (Artifact) bundle.get(ARTIFACT);
+			KindofMisc legacyMisc = (KindofMisc) bundle.get(MISC);
+			Ring legacyRing = (Ring) bundle.get(RING);
+			if (legacyArtifact != null) miscItems.add(legacyArtifact);
+			if (legacyMisc != null)     miscItems.add(legacyMisc);
+			if (legacyRing != null)     miscItems.add(legacyRing);
+		}
+		syncLegacyMiscSlots();
+		for (KindofMisc item : miscItems){
+			item.activate(owner);
+		}
 
 		secondWep = (KindOfWeapon) bundle.get(SECOND_WEP);
 		if (secondWep() != null)    secondWep().activate(owner);
@@ -217,9 +344,8 @@ public class Belongings implements Iterable<Item> {
 		backpack.clear();
 		weapon = secondWep = null;
 		armor = null;
-		artifact = null;
-		misc = null;
-		ring = null;
+		miscItems.clear();
+		syncLegacyMiscSlots();
 	}
 	
 	public static void preview( GamesInProgress.Info info, Bundle bundle ) {
@@ -360,25 +486,21 @@ public class Belongings implements Iterable<Item> {
 				Badges.validateItemLevelAquired(armor());
 			}
 		}
-		if (artifact() != null) {
-			//oblivion shard does not prevent artifact IDing
-			artifact().identify();
-			Badges.validateItemLevelAquired(artifact());
-		}
-		if (misc() != null) {
-			if (ShardOfOblivion.passiveIDDisabled() && misc() instanceof Ring){
-				((Ring) misc()).setIDReady();
+		for (KindofMisc item : equippedMiscs()){
+			if (item instanceof Artifact){
+				//oblivion shard does not prevent artifact IDing
+				item.identify();
+				Badges.validateItemLevelAquired(item);
+			} else if (item instanceof Ring){
+				if (ShardOfOblivion.passiveIDDisabled()){
+					((Ring)item).setIDReady();
+				} else {
+					item.identify();
+					Badges.validateItemLevelAquired(item);
+				}
 			} else {
-				misc().identify();
-				Badges.validateItemLevelAquired(misc());
-			}
-		}
-		if (ring() != null) {
-			if (ShardOfOblivion.passiveIDDisabled()){
-				ring().setIDReady();
-			} else {
-				ring().identify();
-				Badges.validateItemLevelAquired(ring());
+				item.identify();
+				Badges.validateItemLevelAquired(item);
 			}
 		}
 		if (ShardOfOblivion.passiveIDDisabled()){
@@ -393,7 +515,8 @@ public class Belongings implements Iterable<Item> {
 	}
 	
 	public void uncurseEquipped() {
-		ScrollOfRemoveCurse.uncurse( owner, armor(), weapon(), artifact(), misc(), ring(), secondWep());
+		ArrayList<Item> equipped = equippedItems();
+		ScrollOfRemoveCurse.uncurse( owner, equipped.toArray(new Item[0]) );
 	}
 	
 	public Item randomUnequipped() {
@@ -425,14 +548,16 @@ public class Belongings implements Iterable<Item> {
 		
 		private Iterator<Item> backpackIterator = backpack.iterator();
 		
-		private Item[] equipped = {weapon, armor, artifact, misc, ring, secondWep};
-		private int backpackIndex = equipped.length;
+		private ArrayList<Item> equipped = rawEquippedItems();
+		private int backpackIndex = equipped.size();
+		private Item lastItem = null;
+		private boolean lastFromBackpack = false;
 		
 		@Override
 		public boolean hasNext() {
 			
 			for (int i=index; i < backpackIndex; i++) {
-				if (equipped[i] != null) {
+				if (equipped.get(i) != null) {
 					return true;
 				}
 			}
@@ -444,39 +569,34 @@ public class Belongings implements Iterable<Item> {
 		public Item next() {
 			
 			while (index < backpackIndex) {
-				Item item = equipped[index++];
+				Item item = equipped.get(index++);
 				if (item != null) {
+					lastItem = item;
+					lastFromBackpack = false;
 					return item;
 				}
 			}
 			
-			return backpackIterator.next();
+			lastItem = backpackIterator.next();
+			lastFromBackpack = true;
+			return lastItem;
 		}
 
 		@Override
 		public void remove() {
-			switch (index) {
-			case 0:
-				equipped[0] = weapon = null;
-				break;
-			case 1:
-				equipped[1] = armor = null;
-				break;
-			case 2:
-				equipped[2] = artifact = null;
-				break;
-			case 3:
-				equipped[3] = misc = null;
-				break;
-			case 4:
-				equipped[4] = ring = null;
-				break;
-			case 5:
-				equipped[5] = secondWep = null;
-				break;
-			default:
+			if (lastFromBackpack) {
 				backpackIterator.remove();
+			} else if (lastItem == weapon){
+				weapon = null;
+			} else if (lastItem == armor){
+				armor = null;
+			} else if (lastItem == secondWep){
+				secondWep = null;
+			} else if (lastItem instanceof KindofMisc){
+				miscItems.remove(lastItem);
+				syncLegacyMiscSlots();
 			}
+			lastItem = null;
 		}
 	}
 }

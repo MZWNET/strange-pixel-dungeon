@@ -205,8 +205,9 @@ public enum HeroClass {
 		(hero.belongings.weapon = new Dagger()).identify();
 
 		CloakOfShadows cloak = new CloakOfShadows();
-		(hero.belongings.artifact = cloak).identify();
-		hero.belongings.artifact.activate( hero );
+		hero.belongings.equipMisc(cloak);
+		cloak.identify();
+		cloak.activate( hero );
 
 		ThrowingKnife knives = new ThrowingKnife();
 		knives.identify().collect();
@@ -251,8 +252,9 @@ public enum HeroClass {
 		hero.belongings.weapon.activate(hero);
 
 		HolyTome tome = new HolyTome();
-		(hero.belongings.artifact = tome).identify();
-		hero.belongings.artifact.activate( hero );
+		hero.belongings.equipMisc(tome);
+		tome.identify();
+		tome.activate( hero );
 
 		Dungeon.quickslot.setSlot(0, tome);
 

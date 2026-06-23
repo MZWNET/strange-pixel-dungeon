@@ -161,7 +161,7 @@ public class InputHandler extends InputAdapter {
 	
 	@Override
 	public boolean scrolled(float amountX, float amountY) {
-		ScrollEvent.addScrollEvent( new ScrollEvent(PointerEvent.currentHoverPos(), amountY));
+		ScrollEvent.addScrollEvent( new ScrollEvent(PointerEvent.currentHoverPos(), amountX, amountY));
 		return true;
 	}
 }
