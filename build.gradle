@@ -1,7 +1,7 @@
 buildscript {
     repositories {
         google()
-        mavenCentral()
+        maven { url 'https://maven.aliyun.com/repository/central' }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:9.1.0'
@@ -12,7 +12,7 @@ allprojects {
 
     ext {
         appName = 'Shattered Pixel Dungeon'
-        appPackageName = 'com.shatteredpixel.shatteredpixeldungeon'
+        appPackageName = 'org.github.mzwing.strangepixeldungeon'
 
         appVersionCode = 896
         appVersionName = '3.3.8'
@@ -31,7 +31,7 @@ allprojects {
 
     repositories {
         google()
-        mavenCentral()
+        maven { url 'https://maven.aliyun.com/repository/central' }
         maven { url 'https://central.sonatype.com/repository/maven-snapshots/' }
     }
 
