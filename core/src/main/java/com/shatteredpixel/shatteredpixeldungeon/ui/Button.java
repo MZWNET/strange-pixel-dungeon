@@ -221,5 +221,14 @@ public class Button extends Component {
 	public void givePointerPriority(){
 		hotArea.givePointerPriority();
 	}
+
+	static void cancelPress(){
+		if (pressedButton != null){
+			Button pressed = pressedButton;
+			pressedButton = null;
+			pressed.clickReady = false;
+			pressed.onPointerUp();
+		}
+	}
 	
 }

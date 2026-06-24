@@ -206,6 +206,7 @@ public class ScrollPane extends Component {
 
 				dragging = true;
 				lastPos.set( event.current );
+				Button.cancelPress();
 				thumb.am = 1;
 
 			}

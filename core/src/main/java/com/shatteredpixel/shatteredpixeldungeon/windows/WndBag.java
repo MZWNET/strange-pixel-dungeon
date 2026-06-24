@@ -81,6 +81,8 @@ public class WndBag extends WndTabbed {
 	protected int count;
 	protected int col;
 	protected int row;
+
+	private EquipmentStrip equipmentStrip;
 	
 	private static Bag lastBag;
 
@@ -141,6 +143,18 @@ public class WndBag extends WndTabbed {
 		}
 
 		layoutTabs();
+	}
+
+	@Override
+	public void resize(int w, int h) {
+		super.resize(w, h);
+		syncEquipmentStrip();
+	}
+
+	@Override
+	public void offset(int xOffset, int yOffset) {
+		super.offset(xOffset, yOffset);
+		syncEquipmentStrip();
 	}
 
 	public ItemSelector getSelector() {
@@ -245,7 +259,7 @@ public class WndBag extends WndTabbed {
 		
 		// Equipped items
 		Belongings stuff = Dungeon.hero.belongings;
-		EquipmentStrip equipmentStrip = new EquipmentStrip(stuff, true, new EquipmentStrip.SlotFactory() {
+		equipmentStrip = new EquipmentStrip(stuff, true, new EquipmentStrip.SlotFactory() {
 			@Override
 			public InventorySlot create(Item item) {
 				InventorySlot slot = createItemSlot(item);
@@ -256,7 +270,7 @@ public class WndBag extends WndTabbed {
 			}
 		}, slotWidth, slotHeight, SLOT_MARGIN);
 		add(equipmentStrip);
-		equipmentStrip.setRect(0, TITLE_HEIGHT, slotWidth * nCols + SLOT_MARGIN * (nCols - 1), slotHeight);
+		syncEquipmentStrip();
 
 		count += nCols;
 		row = 1;
@@ -281,6 +295,13 @@ public class WndBag extends WndTabbed {
 		// Free Space
 		while ((count - equipped) < container.capacity()) {
 			placeItem( null );
+		}
+	}
+
+	private void syncEquipmentStrip(){
+		if (equipmentStrip != null){
+			equipmentStrip.setRect(0, TITLE_HEIGHT, slotWidth * nCols + SLOT_MARGIN * (nCols - 1), slotHeight);
+			equipmentStrip.syncScrollArea();
 		}
 	}
 	

@@ -26,6 +26,7 @@ import com.shatteredpixel.shatteredpixeldungeon.items.Item;
 import com.shatteredpixel.shatteredpixeldungeon.items.KindofMisc;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSpriteSheet;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndBag;
+import com.watabou.noosa.PointerArea;
 import com.watabou.noosa.ui.Component;
 
 import java.util.ArrayList;
@@ -43,8 +44,8 @@ public class EquipmentStrip extends Component {
 	private int slotHeight;
 	private int gap;
 
-	private Component content;
-	private HorizontalScrollPane scrollPane;
+	protected Component content;
+	protected HorizontalScrollPane scrollPane;
 	private ArrayList<InventorySlot> slots = new ArrayList<>();
 
 	public EquipmentStrip(Belongings belongings, boolean includePlaceholders, SlotFactory slotFactory,
@@ -81,6 +82,7 @@ public class EquipmentStrip extends Component {
 		float contentWidth = 0;
 		for (Item item : items){
 			InventorySlot slot = slotFactory.create(item);
+			prepareSlotForScrolling(slot);
 			content.add(slot);
 			slots.add(slot);
 			contentWidth += slotWidth + gap;
@@ -89,6 +91,10 @@ public class EquipmentStrip extends Component {
 			contentWidth -= gap;
 		}
 		content.setSize(Math.max(width, contentWidth), slotHeight);
+		layout();
+	}
+
+	public void syncScrollArea(){
 		layout();
 	}
 
@@ -111,6 +117,12 @@ public class EquipmentStrip extends Component {
 	public void alpha(float value){
 		for (InventorySlot slot : slots){
 			slot.alpha(value);
+		}
+	}
+
+	static void prepareSlotForScrolling(InventorySlot slot){
+		if (slot != null && slot.hotArea != null){
+			slot.hotArea.blockLevel = PointerArea.NEVER_BLOCK;
 		}
 	}
 
