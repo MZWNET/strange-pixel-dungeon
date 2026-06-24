@@ -96,6 +96,7 @@ import com.shatteredpixel.shatteredpixeldungeon.ui.BossHealthBar;
 import com.shatteredpixel.shatteredpixeldungeon.ui.CharHealthIndicator;
 import com.shatteredpixel.shatteredpixeldungeon.ui.GameLog;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Icons;
+import com.shatteredpixel.shatteredpixeldungeon.ui.IconButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.InventoryPane;
 import com.shatteredpixel.shatteredpixeldungeon.ui.LootIndicator;
 import com.shatteredpixel.shatteredpixeldungeon.ui.MenuPane;
@@ -111,6 +112,7 @@ import com.shatteredpixel.shatteredpixeldungeon.ui.Toolbar;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndBag;
+import com.shatteredpixel.shatteredpixeldungeon.windows.WndDebug;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndGame;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndHero;
 import com.shatteredpixel.shatteredpixeldungeon.windows.WndInfoCell;
@@ -169,6 +171,7 @@ public class GameScene extends PixelScene {
 	private HeroSprite hero;
 
 	private MenuPane menu;
+	private IconButton debug;
 	private StatusPane status;
 
 	private BossHealthBar boss;
@@ -202,6 +205,9 @@ public class GameScene extends PixelScene {
 
 	private Toolbar toolbar;
 	private Toast prompt;
+
+	private static final int DEBUG_BUTTON_SIZE = 16;
+	private static final int DEBUG_BUTTON_MENU_GAP = 18;
 
 	private AttackIndicator attack;
 	private LootIndicator loot;
@@ -448,6 +454,23 @@ public class GameScene extends PixelScene {
 			blocker.camera = uiCamera;
 			add(blocker);
 		}
+
+		debug = new IconButton(Icons.WARNING.get()){
+			@Override
+			protected void onClick() {
+				if (Dungeon.hero != null && Dungeon.hero.isAlive()){
+					GameScene.show(new WndDebug());
+				}
+			}
+
+			@Override
+			protected String hoverText() {
+				return Messages.get(WndDebug.class, "title");
+			}
+		};
+		debug.camera = uiCamera;
+		debug.setRect(menuBarMaxLeft - DEBUG_BUTTON_SIZE - DEBUG_BUTTON_MENU_GAP, screentop + 2, DEBUG_BUTTON_SIZE, DEBUG_BUTTON_SIZE);
+		add(debug);
 
 		status = new StatusPane( SPDSettings.interfaceSize() > 0 );
 		status.camera = uiCamera;
