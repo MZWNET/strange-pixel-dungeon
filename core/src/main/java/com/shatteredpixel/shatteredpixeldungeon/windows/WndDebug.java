@@ -34,9 +34,11 @@ import com.shatteredpixel.shatteredpixeldungeon.messages.Messages;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSprite;
+import com.shatteredpixel.shatteredpixeldungeon.ui.Icons;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RedButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.shatteredpixel.shatteredpixeldungeon.ui.ScrollingGridPane;
+import com.shatteredpixel.shatteredpixeldungeon.ui.ScrollingListPane;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.shatteredpixel.shatteredpixeldungeon.utils.GLog;
 import com.watabou.noosa.ui.Component;
@@ -44,6 +46,7 @@ import com.watabou.utils.Reflection;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Locale;
 
 public class WndDebug extends WndTabbed {
 
@@ -54,6 +57,8 @@ public class WndDebug extends WndTabbed {
 	private static final int HEIGHT_L    = 130;
 
 	private static final int BUTTON_HEIGHT = 18;
+	//kept short so the query still fits on the search button in a portrait window
+	private static final int SEARCH_MAX_LENGTH = 16;
 	private static final int INVULN_MIN_TURNS = 1;
 	private static final int INVULN_MAX_TURNS = 99999;
 
@@ -197,23 +202,109 @@ public class WndDebug extends WndTabbed {
 		return result;
 	}
 
+	//the class name is matched too so that English names still work in a translated game
+	static boolean matchesSearch(Class<?> itemClass, String itemName, String query){
+		String needle = query.trim().toLowerCase(Locale.ROOT);
+		return needle.isEmpty()
+				|| itemName.toLowerCase(Locale.ROOT).contains(needle)
+				|| itemClass.getSimpleName().toLowerCase(Locale.ROOT).contains(needle);
+	}
+
+	private static ArrayList<Item> searchResults(String query){
+		ArrayList<Item> result = new ArrayList<>();
+		for (Catalog catalog : Catalog.equipmentCatalogs){
+			addMatches(catalog, query, result);
+		}
+		for (Catalog catalog : Catalog.consumableCatalogs){
+			addMatches(catalog, query, result);
+		}
+		return result;
+	}
+
+	private static void addMatches(Catalog catalog, String query, ArrayList<Item> result){
+		for (Class<?> itemClass : allowedItems(catalog.items())){
+			Item item = createDebugItem(itemClass);
+			if (item != null && matchesSearch(itemClass, item.trueName(), query)){
+				result.add(item);
+			}
+		}
+	}
+
 	private static class ItemsTab extends Component {
 
+		private RedButton search;
 		private ScrollingGridPane grid;
+		private ScrollingListPane results;
+
+		private String query = "";
 
 		@Override
 		protected void createChildren() {
+			search = new RedButton(""){
+				@Override
+				protected void onClick() {
+					GameScene.show(new WndTextInput(
+							Messages.get(WndDebug.class, "search_title"),
+							Messages.get(WndDebug.class, "search_desc"),
+							query,
+							SEARCH_MAX_LENGTH,
+							false,
+							Messages.get(WndDebug.class, "search_apply"),
+							Messages.get(WndDebug.class, "search_clear")){
+						@Override
+						public void onSelect(boolean positive, String text) {
+							query = positive ? text.trim() : "";
+							updateList();
+						}
+					});
+				}
+			};
+			search.icon(Icons.get(Icons.MAGNIFY));
+			search.leftJustify = true;
+			add(search);
+
 			grid = new ScrollingGridPane();
 			add(grid);
+
+			results = new ScrollingListPane();
+			add(results);
 		}
 
 		@Override
 		protected void layout() {
 			super.layout();
-			grid.setRect(x, y, width, height);
+
+			search.setRect(x, y, width, BUTTON_HEIGHT);
+
+			float paneTop = search.bottom() + 1;
+			float paneHeight = y + height - paneTop;
+			grid.setRect(x, paneTop, width, paneHeight);
+			results.setRect(x, paneTop, width, paneHeight);
 		}
 
 		private void updateList(){
+			boolean searching = !query.isEmpty();
+
+			search.text(searching ? query : Messages.get(WndDebug.class, "search_hint"));
+
+			grid.visible = grid.active = !searching;
+			results.visible = results.active = searching;
+
+			if (searching){
+				updateResults();
+			} else {
+				updateCatalogs();
+			}
+
+			layout();
+			if (searching){
+				results.scrollTo(0, 0);
+			} else {
+				grid.scrollTo(0, 0);
+			}
+		}
+
+		private void updateCatalogs(){
 			grid.clear();
 			grid.addHeader("_" + Messages.get(WndDebug.class, "items_title") + "_", 9, true);
 
@@ -223,8 +314,6 @@ public class WndDebug extends WndTabbed {
 			for (Catalog catalog : Catalog.consumableCatalogs){
 				addCatalog(catalog);
 			}
-
-			grid.setRect(x, y, width, height);
 		}
 
 		private void addCatalog(Catalog catalog){
@@ -252,6 +341,35 @@ public class WndDebug extends WndTabbed {
 					}
 				};
 				grid.addItem(gridItem);
+			}
+		}
+
+		private void updateResults(){
+			results.clear();
+
+			ArrayList<Item> matches = searchResults(query);
+			if (matches.isEmpty()){
+				results.addTitle(Messages.get(WndDebug.class, "search_none", query));
+				return;
+			}
+
+			results.addTitle(Messages.get(WndDebug.class, "search_results", query, matches.size()));
+			for (Item item : matches){
+				Class<?> itemClass = item.getClass();
+				results.addItem(new ScrollingListPane.ListItem(
+						new ItemSprite(item),
+						null,
+						Messages.titleCase(item.trueName())){
+					@Override
+					public boolean onClick(float x, float y) {
+						if (inside(x, y)){
+							spawnItem(itemClass);
+							return true;
+						} else {
+							return false;
+						}
+					}
+				});
 			}
 		}
 	}

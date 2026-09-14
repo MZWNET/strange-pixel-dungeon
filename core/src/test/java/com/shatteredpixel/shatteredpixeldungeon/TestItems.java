@@ -74,4 +74,13 @@ public class TestItems {
 			// Test-only artifact: avoids attaching a null passive buff.
 		}
 	}
+
+	public static class ActivationTrackingArtifact extends Artifact {
+		public boolean activated = false;
+
+		@Override
+		public void activate(Char ch) {
+			activated = true;
+		}
+	}
 }

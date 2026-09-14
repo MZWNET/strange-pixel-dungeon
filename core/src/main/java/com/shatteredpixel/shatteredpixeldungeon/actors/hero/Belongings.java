@@ -330,7 +330,7 @@ public class Belongings implements Iterable<Item> {
 			if (legacyRing != null)     miscItems.add(legacyRing);
 		}
 		syncLegacyMiscSlots();
-		for (KindofMisc item : miscItems){
+		for (KindofMisc item : equippedMiscs()){
 			item.activate(owner);
 		}
 

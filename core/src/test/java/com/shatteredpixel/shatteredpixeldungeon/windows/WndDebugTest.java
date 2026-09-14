@@ -66,6 +66,25 @@ public class WndDebugTest {
 	}
 
 	@Test
+	public void searchMatchesNamesCaseInsensitivelyAndPartially() {
+		assertTrue(WndDebug.matchesSearch(Food.class, "Ration of food", "ration"));
+		assertTrue(WndDebug.matchesSearch(Food.class, "Ration of food", "OF FO"));
+		assertFalse(WndDebug.matchesSearch(Food.class, "Ration of food", "pasty"));
+	}
+
+	@Test
+	public void searchMatchesClassNamesSoEnglishWorksWhenTranslated() {
+		assertTrue(WndDebug.matchesSearch(CursedDebugItem.class, "被诅咒的物品", "cursed"));
+		assertTrue(WndDebug.matchesSearch(CursedDebugItem.class, "被诅咒的物品", "诅咒"));
+	}
+
+	@Test
+	public void emptySearchMatchesEverything() {
+		assertTrue(WndDebug.matchesSearch(Food.class, "Ration of food", ""));
+		assertTrue(WndDebug.matchesSearch(Food.class, "Ration of food", "   "));
+	}
+
+	@Test
 	public void debugCreatedItemsAreNeverCursed() {
 		Item item = WndDebug.createDebugItem(CursedDebugItem.class);
 

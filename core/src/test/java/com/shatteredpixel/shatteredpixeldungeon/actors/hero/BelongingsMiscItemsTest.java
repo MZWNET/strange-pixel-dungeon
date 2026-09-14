@@ -150,6 +150,35 @@ public class BelongingsMiscItemsTest {
 	}
 
 	@Test
+	public void restoreActivatesMiscItems() {
+		Hero hero = new Hero();
+		hero.belongings.equipMisc(new TestItems.ActivationTrackingArtifact());
+
+		Bundle bundle = new Bundle();
+		hero.belongings.storeInBundle(bundle);
+
+		Hero restored = new Hero();
+		restored.belongings.restoreFromBundle(bundle);
+
+		assertTrue(((TestItems.ActivationTrackingArtifact) restored.belongings.rawEquippedMiscs().get(0)).activated);
+	}
+
+	@Test
+	public void restoreSkipsActivationOfMiscItemsLostWithInventory() {
+		Hero hero = new Hero();
+		hero.belongings.equipMisc(new TestItems.ActivationTrackingArtifact());
+
+		Bundle bundle = new Bundle();
+		hero.belongings.storeInBundle(bundle);
+
+		Hero restored = new Hero();
+		restored.belongings.lostInventory(true);
+		restored.belongings.restoreFromBundle(bundle);
+
+		assertFalse(((TestItems.ActivationTrackingArtifact) restored.belongings.rawEquippedMiscs().get(0)).activated);
+	}
+
+	@Test
 	public void duplicateArtifactChecksIgnoreLostInventoryFiltering() {
 		Hero hero = new Hero();
 
