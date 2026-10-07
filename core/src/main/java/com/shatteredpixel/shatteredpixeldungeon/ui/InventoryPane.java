@@ -69,8 +69,9 @@ public class InventoryPane extends Component {
 
 	private static InventoryPane instance;
 
-	private EquipmentStrip equipmentStrip;
-	private ArrayList<InventorySlot> bagItems;
+	private SlotPane equipmentStrip;
+	private SlotPane itemGrid;
+	private Bag shownBag;
 
 	private Image gold;
 	private BitmapText goldTxt;
@@ -85,6 +86,9 @@ public class InventoryPane extends Component {
 
 	private static final int SLOT_WIDTH = 17;
 	private static final int SLOT_HEIGHT = 24;
+
+	private static final int ITEM_COLS = 10;
+	private static final int ITEM_ROWS = 2;
 
 	private WndBag.ItemSelector selector;
 
@@ -152,12 +156,14 @@ public class InventoryPane extends Component {
 			}
 		};
 
-		equipmentStrip = new EquipmentStrip(Dungeon.hero.belongings, true, new EquipmentStrip.SlotFactory() {
+		SlotPane.SlotFactory slotFactory = new SlotPane.SlotFactory() {
 			@Override
 			public InventorySlot create(Item item) {
 				return new InventoryPaneSlot(item);
 			}
-		}, SLOT_WIDTH, SLOT_HEIGHT, 1);
+		};
+
+		equipmentStrip = new SlotPane(true, SLOT_WIDTH, SLOT_HEIGHT, 1, slotFactory);
 		add(equipmentStrip);
 
 		gold = Icons.get(Icons.COIN_SML);
@@ -176,12 +182,8 @@ public class InventoryPane extends Component {
 		promptTxt.hardlight(Window.TITLE_COLOR);
 		add(promptTxt);
 
-		bagItems = new ArrayList<>();
-		for (int i = 0; i < 20; i++){
-			InventorySlot btn = new InventoryPaneSlot(null);
-			bagItems.add(btn);
-			add(btn);
-		}
+		itemGrid = new SlotPane(false, SLOT_WIDTH, SLOT_HEIGHT, 1, slotFactory);
+		add(itemGrid);
 
 		bags = new ArrayList<>();
 		for (int i = 0; i < 5; i++){
@@ -243,16 +245,7 @@ public class InventoryPane extends Component {
 			left = b.right()+1;
 		}
 
-		left = x+4;
-		float top = y+4+SLOT_HEIGHT+1;
-		for (InventorySlot b : bagItems){
-			b.setRect(left, top, SLOT_WIDTH, SLOT_HEIGHT);
-			left = b.right()+1;
-			if (left - x > width - 17){
-				left = x+4;
-				top += SLOT_HEIGHT+1;
-			}
-		}
+		itemGrid.setRect(x+4, equipmentStrip.bottom()+1, ITEM_COLS*(SLOT_WIDTH+1) - 1, ITEM_ROWS*(SLOT_HEIGHT+1) - 1);
 
 		super.layout();
 	}
@@ -261,9 +254,7 @@ public class InventoryPane extends Component {
 		bg.alpha( value );
 		
 		equipmentStrip.alpha(value);
-		for (InventorySlot slot : bagItems){
-			slot.alpha( value );
-		}
+		itemGrid.alpha(value);
 		
 		gold.alpha(value);
 		goldTxt.alpha(value);
@@ -294,29 +285,13 @@ public class InventoryPane extends Component {
 			lastBag = stuff.backpack;
 		}
 
-		equipmentStrip.belongings(stuff);
-		equipmentStrip.refresh();
+		equipmentStrip.items(SlotPane.equipment(stuff));
 
-		ArrayList<Item> items = (ArrayList<Item>) lastBag.items.clone();
-
-		int j = 0;
-		for (int i = 0; i < 20; i++){
-			if (i == 0 && lastBag != stuff.backpack){
-				bagItems.get(i).item(lastBag);
-				continue;
-			}
-			if (items.size() > j){
-				if (items.get(j) instanceof Bag){
-					j++;
-					i--;
-					continue;
-				}
-				bagItems.get(i).item(items.get(j));
-				j++;
-			} else {
-				bagItems.get(i).item(null);
-			}
+		if (shownBag != lastBag){
+			shownBag = lastBag;
+			itemGrid.scrollToTop();
 		}
+		itemGrid.items(SlotPane.contents(lastBag, ITEM_COLS, ITEM_ROWS));
 
 		if (selector == null) {
 			promptTxt.visible = false;
@@ -352,7 +327,7 @@ public class InventoryPane extends Component {
 					&& (selector == null || selector.itemSelectable(b.item()))
 					&& (!lostInvent || b.item().keptThroughLostInventory()));
 		}
-		for (InventorySlot b : bagItems){
+		for (InventorySlot b : itemGrid.slots()){
 			b.enable(lastEnabled
 					&& b.item() != null
 					&& (selector == null || selector.itemSelectable(b.item()))
@@ -413,6 +388,8 @@ public class InventoryPane extends Component {
 				crossM.point(sprite.center(crossM));
 			}
 
+			//drawn by the slot's scroll pane camera, so it scrolls and clips along with the slot
+			crossB.camera = targetingSlot.camera();
 			crossB.point(targetingSlot.sprite.center(crossB));
 			crossB.visible = true;
 
@@ -446,7 +423,7 @@ public class InventoryPane extends Component {
 						&& (selector == null || selector.itemSelectable(b.item()))
 						&& (!lostInvent || b.item().keptThroughLostInventory()));
 			}
-			for (InventorySlot b : bagItems){
+			for (InventorySlot b : itemGrid.slots()){
 				b.enable(lastEnabled
 						&& b.item() != null
 						&& (selector == null || selector.itemSelectable(b.item()))
@@ -583,13 +560,16 @@ public class InventoryPane extends Component {
 			if (selector == null){
 				targetingSlot = this;
 				RightClickMenu r = new RightClickMenu(item);
-				parent.addToFront(r);
-				r.camera = camera();
+				//the slot's own camera only covers its scroll pane
+				InventoryPane.this.addToFront(r);
+				r.camera = InventoryPane.this.camera();
 				PointF mousePos = PointerEvent.currentHoverPos();
-				mousePos = camera.screenToCamera((int)mousePos.x, (int)mousePos.y);
+				mousePos = r.camera.screenToCamera((int)mousePos.x, (int)mousePos.y);
 				r.setPos(mousePos.x-3, mousePos.y-3);
-				r.setChildWindowOffset(new Point((int)centerX() - camera().width/2,
-						(int)centerY() - camera().height/2));
+				Point screenCenter = camera().cameraToScreen(centerX(), centerY());
+				PointF center = r.camera.screenToCamera(screenCenter.x, screenCenter.y);
+				r.setChildWindowOffset(new Point((int)center.x - r.camera.width/2,
+						(int)center.y - r.camera.height/2));
 			} else {
 				//do nothing
 			}

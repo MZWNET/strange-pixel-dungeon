@@ -51,10 +51,6 @@ public class Bag extends Item implements Iterable<Item> {
 
 	public ArrayList<Item> items = new ArrayList<>();
 
-	public int capacity(){
-		return 20; // default container size
-	}
-
 	//if an item is being quick-used from the bag, the bag should take on its targeting properties
 	public Item quickUseItem;
 
@@ -191,21 +187,7 @@ public class Bag extends Item implements Iterable<Item> {
 	}
 
 	public boolean canHold( Item item ){
-		if (!loading && owner != null && owner.buff(LostInventory.class) != null
-			&& !item.keptThroughLostInventory()){
-			return false;
-		}
-
-		if (items.contains(item) || item instanceof Bag || items.size() < capacity()){
-			return true;
-		} else if (item.stackable) {
-			for (Item i : items) {
-				if (item.isSimilar( i )) {
-					return true;
-				}
-			}
-		}
-		return false;
+		return loading || owner == null || owner.buff(LostInventory.class) == null || item.keptThroughLostInventory();
 	}
 
 	@Override

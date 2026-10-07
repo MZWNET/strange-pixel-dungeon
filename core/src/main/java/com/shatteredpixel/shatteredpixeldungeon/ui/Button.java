@@ -196,7 +196,7 @@ public class Button extends Component {
 			tip.setPos(tip.left() - (tip.right() - (cam.width+cam.scroll.x)), tip.top());
 		}
 		//move to the bottom if there's no room on top
-		if (tip.top() < 0){
+		if (tip.top() < cam.scroll.y){
 			tip.setPos(tip.left(), bottom()+1);
 		}
 	}

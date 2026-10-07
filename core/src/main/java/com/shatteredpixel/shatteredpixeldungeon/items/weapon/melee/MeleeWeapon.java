@@ -566,11 +566,6 @@ public class MeleeWeapon extends Weapon {
 				return;
 			}
 
-			if (Dungeon.hero.belongings.secondWep == null && Dungeon.hero.belongings.backpack.items.size() >= Dungeon.hero.belongings.backpack.capacity()){
-				GLog.w(Messages.get(MeleeWeapon.class, "swap_full"));
-				return;
-			}
-
 			KindOfWeapon temp = Dungeon.hero.belongings.weapon;
 			Dungeon.hero.belongings.weapon = Dungeon.hero.belongings.secondWep;
 			Dungeon.hero.belongings.secondWep = temp;

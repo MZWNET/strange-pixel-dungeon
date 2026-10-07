@@ -36,12 +36,12 @@ import com.shatteredpixel.shatteredpixeldungeon.scenes.GameScene;
 import com.shatteredpixel.shatteredpixeldungeon.scenes.PixelScene;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSprite;
 import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSpriteSheet;
-import com.shatteredpixel.shatteredpixeldungeon.ui.EquipmentStrip;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Icons;
 import com.shatteredpixel.shatteredpixeldungeon.ui.InventorySlot;
 import com.shatteredpixel.shatteredpixeldungeon.ui.QuickSlotButton;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RenderedTextBlock;
 import com.shatteredpixel.shatteredpixeldungeon.ui.RightClickMenu;
+import com.shatteredpixel.shatteredpixeldungeon.ui.SlotPane;
 import com.shatteredpixel.shatteredpixeldungeon.ui.Window;
 import com.watabou.input.GameAction;
 import com.watabou.input.KeyBindings;
@@ -78,12 +78,9 @@ public class WndBag extends WndTabbed {
 	private int slotWidth;
 	private int slotHeight;
 
-	protected int count;
-	protected int col;
-	protected int row;
+	private SlotPane equipmentStrip;
+	private SlotPane itemGrid;
 
-	private EquipmentStrip equipmentStrip;
-	
 	private static Bag lastBag;
 
 	public WndBag( Bag bag ) {
@@ -148,13 +145,13 @@ public class WndBag extends WndTabbed {
 	@Override
 	public void resize(int w, int h) {
 		super.resize(w, h);
-		syncEquipmentStrip();
+		layoutSlots();
 	}
 
 	@Override
 	public void offset(int xOffset, int yOffset) {
 		super.offset(xOffset, yOffset);
-		syncEquipmentStrip();
+		layoutSlots();
 	}
 
 	public ItemSelector getSelector() {
@@ -256,79 +253,31 @@ public class WndBag extends WndTabbed {
 	}
 	
 	protected void placeItems( Bag container ) {
-		
-		// Equipped items
-		Belongings stuff = Dungeon.hero.belongings;
-		equipmentStrip = new EquipmentStrip(stuff, true, new EquipmentStrip.SlotFactory() {
+
+		SlotPane.SlotFactory slotFactory = new SlotPane.SlotFactory() {
 			@Override
 			public InventorySlot create(Item item) {
-				InventorySlot slot = createItemSlot(item);
-				if (item instanceof Placeholder || (selector != null && !selector.itemSelectable(item))){
-					slot.enable(false);
-				}
-				return slot;
+				return createItemSlot(item);
 			}
-		}, slotWidth, slotHeight, SLOT_MARGIN);
+		};
+
+		equipmentStrip = new SlotPane(true, slotWidth, slotHeight, SLOT_MARGIN, slotFactory);
+		equipmentStrip.items(SlotPane.equipment(Dungeon.hero.belongings));
 		add(equipmentStrip);
-		syncEquipmentStrip();
 
-		count += nCols;
-		row = 1;
-		col = 0;
-		int equipped = nCols;
-
-		//the container itself if it's not the root backpack
-		if (container != Dungeon.hero.belongings.backpack){
-			placeItem(container);
-			count--; //don't count this one, as it's not actually inside of itself
-		}
-
-		// Items in the bag, except other containers (they have tags at the bottom)
-		for (Item item : container.items.toArray(new Item[0])) {
-			if (!(item instanceof Bag)) {
-				placeItem( item );
-			} else {
-				count++;
-			}
-		}
-		
-		// Free Space
-		while ((count - equipped) < container.capacity()) {
-			placeItem( null );
-		}
+		itemGrid = new SlotPane(false, slotWidth, slotHeight, SLOT_MARGIN, slotFactory);
+		itemGrid.items(SlotPane.contents(container, nCols, nRows - 1));
+		add(itemGrid);
 	}
 
-	private void syncEquipmentStrip(){
-		if (equipmentStrip != null){
-			equipmentStrip.setRect(0, TITLE_HEIGHT, slotWidth * nCols + SLOT_MARGIN * (nCols - 1), slotHeight);
-			equipmentStrip.syncScrollArea();
-		}
-	}
-	
-	protected void placeItem( final Item item ) {
-
-		count++;
-		
-		int x = col * (slotWidth + SLOT_MARGIN);
-		int y = TITLE_HEIGHT + row * (slotHeight + SLOT_MARGIN);
-
-		InventorySlot slot = createItemSlot(item);
-		slot.setRect( x, y, slotWidth, slotHeight );
-		add(slot);
-
-		if (item == null || (selector != null && !selector.itemSelectable(item))){
-			slot.enable(false);
-		}
-
-		if (++col >= nCols) {
-			col = 0;
-			row++;
-		}
-
+	//scroll panes position their cameras on layout, so they need it whenever the window moves
+	private void layoutSlots(){
+		equipmentStrip.setRect(0, TITLE_HEIGHT, width, slotHeight);
+		itemGrid.setRect(0, equipmentStrip.bottom() + SLOT_MARGIN, width, height - equipmentStrip.bottom() - SLOT_MARGIN);
 	}
 
 	protected InventorySlot createItemSlot( final Item item ) {
-		return new InventorySlot( item ){
+		InventorySlot slot = new InventorySlot( item ){
 			@Override
 			protected void onClick() {
 				if (lastBag != item && !lastBag.contains(item) && !item.isEquipped(Dungeon.hero)){
@@ -370,10 +319,11 @@ public class WndBag extends WndTabbed {
 							WndBag.this.hide();
 						}
 					};
-					parent.addToFront(r);
-					r.camera = camera();
+					//the slot's own camera only covers its scroll pane
+					WndBag.this.addToFront(r);
+					r.camera = WndBag.this.camera;
 					PointF mousePos = PointerEvent.currentHoverPos();
-					mousePos = camera.screenToCamera((int)mousePos.x, (int)mousePos.y);
+					mousePos = r.camera.screenToCamera((int)mousePos.x, (int)mousePos.y);
 					r.setPos(mousePos.x-3, mousePos.y-3);
 
 				}
@@ -393,6 +343,10 @@ public class WndBag extends WndTabbed {
 				}
 			}
 		};
+		if (item == null || item instanceof Placeholder || (selector != null && !selector.itemSelectable(item))){
+			slot.enable(false);
+		}
+		return slot;
 	}
 
 	@Override

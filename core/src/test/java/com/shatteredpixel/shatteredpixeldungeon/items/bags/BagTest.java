@@ -21,30 +21,23 @@
 
 package com.shatteredpixel.shatteredpixeldungeon.items.bags;
 
-import com.shatteredpixel.shatteredpixeldungeon.items.Item;
-import com.shatteredpixel.shatteredpixeldungeon.items.LiquidMetal;
-import com.shatteredpixel.shatteredpixeldungeon.items.Waterskin;
-import com.shatteredpixel.shatteredpixeldungeon.items.potions.Potion;
-import com.shatteredpixel.shatteredpixeldungeon.sprites.ItemSpriteSheet;
+import com.shatteredpixel.shatteredpixeldungeon.TestItems;
+import com.shatteredpixel.shatteredpixeldungeon.actors.hero.Hero;
 
-public class PotionBandolier extends Bag {
+import org.junit.Test;
 
-	{
-		image = ItemSpriteSheet.BANDOLIER;
-	}
+import static org.junit.Assert.assertEquals;
 
-	@Override
-	public boolean canHold( Item item ) {
-		if (item instanceof Potion || item instanceof LiquidMetal || item instanceof Waterskin){
-			return super.canHold(item);
-		} else {
-			return false;
+public class BagTest {
+
+	@Test
+	public void backpackKeepsCollectingPastTheOldSlotLimit() {
+		Hero hero = new Hero();
+
+		for (int i = 0; i < 30; i++){
+			new TestItems.TestWeapon().collect(hero.belongings.backpack);
 		}
-	}
 
-	@Override
-	public int value() {
-		return 40;
+		assertEquals(30, hero.belongings.backpack.items.size());
 	}
-
 }
